@@ -1,0 +1,6 @@
+{
+  "name": "화이팅 🌸 - Hwaiting Productivity",
+  "description": "A premium Korean-inspired pastel productivity suite with task management, calendar scheduling, remaining free time calculator, habit tracker, Pomodoro timer, Eisenhower matrix, and AI assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
