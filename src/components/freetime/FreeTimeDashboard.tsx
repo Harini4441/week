@@ -20,7 +20,6 @@ interface FreeTimeDashboardProps {
   scheduleConfig: UserScheduleConfig;
   onUpdateConfig: (config: UserScheduleConfig) => void;
   onScheduleInSlot: (slot: FreeTimeSlot, dateStr: string) => void;
-  onAskAiForFreeTime: (summaryText: string) => void;
 }
 
 export const FreeTimeDashboard: React.FC<FreeTimeDashboardProps> = ({
@@ -28,7 +27,6 @@ export const FreeTimeDashboard: React.FC<FreeTimeDashboardProps> = ({
   scheduleConfig,
   onUpdateConfig,
   onScheduleInSlot,
-  onAskAiForFreeTime,
 }) => {
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     return new Date().toISOString().split('T')[0];
@@ -196,18 +194,6 @@ export const FreeTimeDashboard: React.FC<FreeTimeDashboardProps> = ({
               <span>Sleep: <strong>{scheduleConfig.sleepTime}</strong></span>
             </div>
           </div>
-
-          <button
-            onClick={() =>
-              onAskAiForFreeTime(
-                `For date ${selectedDate}: Total awake: ${summary.awakeHours}h, Scheduled commitments: ${summary.scheduledHours}h, Free hours remaining: ${summary.freeHours}h. Categories: ${JSON.stringify(summary.categoryHours)}`
-              )
-            }
-            className="mt-4 w-full flex items-center justify-center gap-2 py-2 px-3 rounded-2xl bg-[var(--color-primary,#F8C8DC)]/40 hover:bg-[var(--color-primary,#F8C8DC)] text-[var(--color-text,#3D3548)] text-xs font-semibold transition-all cursor-pointer"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-[var(--color-accent,#E78EA9)]" />
-            <span>AI Free Time Advisor</span>
-          </button>
         </div>
 
         {/* Card 2: Breakdown by Category */}

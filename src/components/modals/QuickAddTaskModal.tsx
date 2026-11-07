@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Plus, Calendar, Clock, Sparkles } from 'lucide-react';
+import { X, Calendar, Clock } from 'lucide-react';
 import { Task, Category, Priority } from '../../types';
 
 interface QuickAddTaskModalProps {
@@ -28,6 +28,8 @@ export const QuickAddTaskModal: React.FC<QuickAddTaskModalProps> = ({
   const [durationMinutes, setDurationMinutes] = useState(60);
   const [description, setDescription] = useState('');
 
+  const durationPresets = [15, 25, 30, 45, 60, 90, 120];
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
@@ -39,7 +41,7 @@ export const QuickAddTaskModal: React.FC<QuickAddTaskModalProps> = ({
       priority,
       dueDate: dueDate || null,
       startTime: startTime || null,
-      durationMinutes,
+      durationMinutes: Math.max(1, durationMinutes || 30),
       subtasks: [],
       tags: [],
       recurring: 'none',
@@ -78,7 +80,7 @@ export const QuickAddTaskModal: React.FC<QuickAddTaskModalProps> = ({
               type="text"
               required
               autoFocus
-              placeholder="e.g. Study DBMS Normalization or Read 20 pages"
+              placeholder="e.g., DBMS Normalization practice or read 20 pages"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               className="w-full px-3 py-2 rounded-2xl border border-[var(--color-border,#F1E4DF)] bg-[var(--color-bg,#FFF9F2)] text-xs font-semibold text-[var(--color-text,#3D3548)] focus:outline-none"
@@ -120,7 +122,7 @@ export const QuickAddTaskModal: React.FC<QuickAddTaskModalProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-xs font-medium text-[var(--color-muted,#7B6F8A)]">
                 Due Date
@@ -129,7 +131,7 @@ export const QuickAddTaskModal: React.FC<QuickAddTaskModalProps> = ({
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full px-2 py-2 rounded-xl border border-[var(--color-border,#F1E4DF)] bg-[var(--color-bg,#FFF9F2)] text-xs text-[var(--color-text,#3D3548)] focus:outline-none"
+                className="w-full px-3 py-2 rounded-xl border border-[var(--color-border,#F1E4DF)] bg-[var(--color-bg,#FFF9F2)] text-xs text-[var(--color-text,#3D3548)] focus:outline-none"
               />
             </div>
 
@@ -141,38 +143,78 @@ export const QuickAddTaskModal: React.FC<QuickAddTaskModalProps> = ({
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                className="w-full px-2 py-2 rounded-xl border border-[var(--color-border,#F1E4DF)] bg-[var(--color-bg,#FFF9F2)] text-xs text-[var(--color-text,#3D3548)] focus:outline-none"
+                className="w-full px-3 py-2 rounded-xl border border-[var(--color-border,#F1E4DF)] bg-[var(--color-bg,#FFF9F2)] text-xs text-[var(--color-text,#3D3548)] focus:outline-none"
               />
             </div>
+          </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-[var(--color-muted,#7B6F8A)]">
+          {/* Duration Section: Quick Presets + Direct Custom Input Field */}
+          <div className="space-y-2 p-3 rounded-2xl bg-[var(--color-bg,#FFF9F2)] border border-[var(--color-border,#F1E4DF)]">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-[var(--color-text,#3D3548)]">
                 Duration
               </label>
-              <select
-                value={durationMinutes}
-                onChange={(e) => setDurationMinutes(parseInt(e.target.value, 10))}
-                className="w-full px-2 py-2 rounded-xl border border-[var(--color-border,#F1E4DF)] bg-[var(--color-bg,#FFF9F2)] text-xs text-[var(--color-text,#3D3548)] focus:outline-none cursor-pointer"
-              >
-                <option value={30}>30m</option>
-                <option value={45}>45m</option>
-                <option value={60}>1 hour</option>
-                <option value={90}>1.5h</option>
-                <option value={120}>2 hours</option>
-              </select>
+              <span className="text-xs font-bold text-[var(--color-accent,#E78EA9)] tabular-nums">
+                {durationMinutes >= 60
+                  ? `${durationMinutes}m (${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m)`
+                  : `${durationMinutes}m`}
+              </span>
+            </div>
+
+            {/* Quick Presets */}
+            <div className="flex flex-wrap gap-1.5">
+              {durationPresets.map((preset) => {
+                const isSelected = durationMinutes === preset;
+                const label = preset < 60 ? `${preset}m` : preset === 60 ? '1h' : preset === 90 ? '1.5h' : `${preset / 60}h`;
+                return (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setDurationMinutes(preset)}
+                    className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-[var(--color-primary,#F8C8DC)] text-[var(--color-text,#3D3548)] shadow-2xs'
+                        : 'bg-[var(--color-card,#FFFFFF)] border border-[var(--color-border,#F1E4DF)] text-[var(--color-muted,#7B6F8A)] hover:border-[var(--color-primary,#F8C8DC)]'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Direct Numeric Custom Duration Input */}
+            <div className="pt-2 flex items-center gap-2">
+              <span className="text-[11px] font-medium text-[var(--color-muted,#7B6F8A)] shrink-0">
+                Custom Duration:
+              </span>
+              <div className="flex items-center gap-1.5 flex-1">
+                <input
+                  type="number"
+                  min="1"
+                  max="720"
+                  value={durationMinutes}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    setDurationMinutes(isNaN(val) ? 0 : val);
+                  }}
+                  className="w-24 px-2.5 py-1 rounded-xl border border-[var(--color-border,#F1E4DF)] bg-[var(--color-card,#FFFFFF)] text-xs font-bold text-[var(--color-text,#3D3548)] text-center focus:outline-none"
+                />
+                <span className="text-xs font-medium text-[var(--color-muted,#7B6F8A)]">minutes</span>
+              </div>
             </div>
           </div>
 
           <div className="space-y-1">
             <label className="text-xs font-medium text-[var(--color-muted,#7B6F8A)]">
-              Description (Optional)
+              Notes & Description
             </label>
             <textarea
               rows={2}
-              placeholder="Notes or checklist thoughts..."
+              placeholder="Add notes, sub-goals, or details..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 rounded-2xl border border-[var(--color-border,#F1E4DF)] bg-[var(--color-bg,#FFF9F2)] text-xs text-[var(--color-text,#3D3548)] focus:outline-none"
+              className="w-full px-3 py-2 rounded-2xl border border-[var(--color-border,#F1E4DF)] bg-[var(--color-bg,#FFF9F2)] text-xs text-[var(--color-text,#3D3548)] focus:outline-none resize-none"
             />
           </div>
 
@@ -180,16 +222,15 @@ export const QuickAddTaskModal: React.FC<QuickAddTaskModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-medium text-[var(--color-muted,#7B6F8A)] hover:bg-[var(--color-primary,#F8C8DC)]/20"
+              className="px-4 py-2 rounded-2xl border border-[var(--color-border,#F1E4DF)] text-xs font-semibold text-[var(--color-muted,#7B6F8A)] hover:bg-[var(--color-bg,#FFF9F2)] cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-semibold bg-[var(--color-primary,#F8C8DC)] text-[var(--color-text,#3D3548)] hover:brightness-95 shadow-xs"
+              className="px-5 py-2 rounded-2xl bg-[var(--color-primary,#F8C8DC)] text-xs font-bold text-[var(--color-text,#3D3548)] hover:brightness-95 shadow-sm cursor-pointer active:scale-95 transition-transform"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Task</span>
+              Create Task
             </button>
           </div>
         </form>

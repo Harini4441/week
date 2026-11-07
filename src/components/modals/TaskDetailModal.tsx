@@ -3,14 +3,9 @@ import {
   X,
   CheckCircle2,
   Circle,
-  Clock,
-  Calendar,
   Tag,
-  Plus,
   Trash2,
   Play,
-  MessageSquare,
-  Sparkles,
 } from 'lucide-react';
 import { Task, Category, Priority, Subtask } from '../../types';
 import { playCelebration, playChime } from '../../utils/audio';
@@ -22,7 +17,6 @@ interface TaskDetailModalProps {
   onUpdateTask: (updated: Task) => void;
   onDeleteTask: (taskId: string) => void;
   onStartFocus: (task: Task) => void;
-  onBreakdownWithAi: (taskTitle: string) => void;
 }
 
 export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
@@ -32,7 +26,6 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   onUpdateTask,
   onDeleteTask,
   onStartFocus,
-  onBreakdownWithAi,
 }) => {
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
@@ -43,8 +36,9 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [durationMinutes, setDurationMinutes] = useState(task.durationMinutes || 60);
   const [subtasks, setSubtasks] = useState<Subtask[]>(task.subtasks || []);
   const [newSubtaskText, setNewSubtaskText] = useState('');
-  const [commentText, setCommentText] = useState('');
   const [tagsText, setTagsText] = useState(task.tags.join(', '));
+
+  const durationPresets = [15, 25, 30, 45, 60, 90, 120];
 
   const handleToggleSubtask = (stId: string) => {
     setSubtasks((prev) =>
@@ -76,22 +70,6 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     setSubtasks(subtasks.filter((st) => st.id !== stId));
   };
 
-  const handleAddComment = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!commentText.trim()) return;
-    const newComment = {
-      id: `c-${Date.now()}`,
-      text: commentText.trim(),
-      createdAt: new Date().toISOString(),
-    };
-    const updated = {
-      ...task,
-      comments: [...(task.comments || []), newComment],
-    };
-    onUpdateTask(updated);
-    setCommentText('');
-  };
-
   const handleSave = () => {
     const parsedTags = tagsText
       .split(',')
@@ -106,7 +84,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       priority,
       dueDate: dueDate || null,
       startTime: startTime || null,
-      durationMinutes,
+      durationMinutes: Math.max(1, durationMinutes || 30),
       subtasks,
       tags: parsedTags,
     });
@@ -132,7 +110,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 onClose();
               }}
               title="Start Pomodoro Focus"
-              className="p-2 rounded-xl text-[var(--color-muted,#7B6F8A)] hover:text-rose-500 hover:bg-rose-50 transition-colors"
+              className="p-2 rounded-xl text-[var(--color-muted,#7B6F8A)] hover:text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
             >
               <Play className="w-4 h-4 fill-current" />
             </button>
@@ -142,13 +120,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 onClose();
               }}
               title="Delete Task"
-              className="p-2 rounded-xl text-[var(--color-muted,#7B6F8A)] hover:text-rose-500 hover:bg-rose-50 transition-colors"
+              className="p-2 rounded-xl text-[var(--color-muted,#7B6F8A)] hover:text-rose-500 hover:bg-rose-50 transition-colors cursor-pointer"
             >
               <Trash2 className="w-4 h-4" />
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl text-[var(--color-muted,#7B6F8A)] hover:bg-[var(--color-primary,#F8C8DC)]/20 transition-colors"
+              className="p-2 rounded-xl text-[var(--color-muted,#7B6F8A)] hover:bg-[var(--color-primary,#F8C8DC)]/20 transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -181,13 +159,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            placeholder="Add detailed markdown notes, requirements, or formulas..."
+            placeholder="Detailed notes, links, or formulas..."
             className="w-full text-xs p-3 rounded-2xl border border-[var(--color-border,#F1E4DF)] bg-[var(--color-bg,#FFF9F2)]/60 text-[var(--color-text,#3D3548)] focus:outline-none focus:bg-[var(--color-bg,#FFF9F2)]"
           />
         </div>
 
         {/* Timing & Category Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="space-y-1">
             <label className="text-[11px] font-medium text-[var(--color-muted,#7B6F8A)]">
               Category
@@ -228,24 +206,62 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               className="w-full px-2.5 py-1.5 rounded-xl border border-[var(--color-border,#F1E4DF)] bg-[var(--color-bg,#FFF9F2)] text-xs text-[var(--color-text,#3D3548)] focus:outline-none"
             />
           </div>
+        </div>
 
-          <div className="space-y-1">
-            <label className="text-[11px] font-medium text-[var(--color-muted,#7B6F8A)]">
+        {/* Duration Section: Quick Preset Pills + Direct Numeric Custom Duration Input */}
+        <div className="space-y-2 p-3 rounded-2xl bg-[var(--color-bg,#FFF9F2)] border border-[var(--color-border,#F1E4DF)]">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-[var(--color-text,#3D3548)]">
               Duration
             </label>
-            <select
-              value={durationMinutes}
-              onChange={(e) => setDurationMinutes(parseInt(e.target.value, 10))}
-              className="w-full px-2.5 py-1.5 rounded-xl border border-[var(--color-border,#F1E4DF)] bg-[var(--color-bg,#FFF9F2)] text-xs text-[var(--color-text,#3D3548)] focus:outline-none cursor-pointer"
-            >
-              <option value={15}>15 mins</option>
-              <option value={30}>30 mins</option>
-              <option value={45}>45 mins</option>
-              <option value={60}>1 hour</option>
-              <option value={90}>1.5 hours</option>
-              <option value={120}>2 hours</option>
-              <option value={180}>3 hours</option>
-            </select>
+            <span className="text-xs font-bold text-[var(--color-accent,#E78EA9)] tabular-nums">
+              {durationMinutes >= 60
+                ? `${durationMinutes}m (${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m)`
+                : `${durationMinutes}m`}
+            </span>
+          </div>
+
+          {/* Preset Pills */}
+          <div className="flex flex-wrap gap-1.5">
+            {durationPresets.map((preset) => {
+              const isSelected = durationMinutes === preset;
+              const label = preset < 60 ? `${preset}m` : preset === 60 ? '1h' : preset === 90 ? '1.5h' : `${preset / 60}h`;
+              return (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setDurationMinutes(preset)}
+                  className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-[var(--color-primary,#F8C8DC)] text-[var(--color-text,#3D3548)] shadow-2xs'
+                      : 'bg-[var(--color-card,#FFFFFF)] border border-[var(--color-border,#F1E4DF)] text-[var(--color-muted,#7B6F8A)] hover:border-[var(--color-primary,#F8C8DC)]'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Direct Custom Duration Numeric Input Field */}
+          <div className="pt-2 flex items-center gap-2">
+            <span className="text-[11px] font-medium text-[var(--color-muted,#7B6F8A)] shrink-0">
+              Custom Duration:
+            </span>
+            <div className="flex items-center gap-1.5 flex-1">
+              <input
+                type="number"
+                min="1"
+                max="720"
+                value={durationMinutes}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  setDurationMinutes(isNaN(val) ? 0 : val);
+                }}
+                className="w-24 px-2.5 py-1 rounded-xl border border-[var(--color-border,#F1E4DF)] bg-[var(--color-card,#FFFFFF)] text-xs font-bold text-[var(--color-text,#3D3548)] text-center focus:outline-none"
+              />
+              <span className="text-xs font-medium text-[var(--color-muted,#7B6F8A)]">minutes</span>
+            </div>
           </div>
         </div>
 
@@ -259,24 +275,17 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             type="text"
             value={tagsText}
             onChange={(e) => setTagsText(e.target.value)}
-            placeholder="GATE, CS, Revision"
+            placeholder="e.g., GATE, CS, assignment, algorithm"
             className="w-full px-3 py-1.5 rounded-xl border border-[var(--color-border,#F1E4DF)] bg-[var(--color-bg,#FFF9F2)] text-xs text-[var(--color-text,#3D3548)] focus:outline-none"
           />
         </div>
 
-        {/* Subtasks Checklist */}
-        <div className="space-y-2 pt-2 border-t border-[var(--color-border,#F1E4DF)]">
+        {/* Subtasks Section */}
+        <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-[var(--color-text,#3D3548)]">
               Subtasks ({subtasks.filter((s) => s.completed).length}/{subtasks.length})
             </span>
-            <button
-              onClick={() => onBreakdownWithAi(title)}
-              className="flex items-center gap-1 text-[11px] font-semibold text-[var(--color-accent,#E78EA9)] hover:underline"
-            >
-              <Sparkles className="w-3 h-3" />
-              <span>AI Breakdown</span>
-            </button>
           </div>
 
           <div className="space-y-1.5 max-h-40 overflow-y-auto">
@@ -288,7 +297,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <button
                     onClick={() => handleToggleSubtask(st.id)}
-                    className="text-[var(--color-muted,#7B6F8A)] hover:text-emerald-500"
+                    className="text-[var(--color-muted,#7B6F8A)] hover:text-emerald-500 cursor-pointer"
                   >
                     {st.completed ? (
                       <CheckCircle2 className="w-4 h-4 text-emerald-500" />
@@ -307,7 +316,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
                 <button
                   onClick={() => handleRemoveSubtask(st.id)}
-                  className="text-[var(--color-muted,#7B6F8A)] hover:text-rose-500"
+                  className="text-[var(--color-muted,#7B6F8A)] hover:text-rose-500 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -336,13 +345,13 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--color-border,#F1E4DF)]">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-medium text-[var(--color-muted,#7B6F8A)] hover:bg-[var(--color-primary,#F8C8DC)]/20"
+            className="px-4 py-2 rounded-xl text-xs font-medium text-[var(--color-muted,#7B6F8A)] hover:bg-[var(--color-primary,#F8C8DC)]/20 cursor-pointer"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-5 py-2 rounded-xl text-xs font-semibold bg-[var(--color-primary,#F8C8DC)] text-[var(--color-text,#3D3548)] hover:brightness-95 shadow-xs"
+            className="px-5 py-2 rounded-xl text-xs font-semibold bg-[var(--color-primary,#F8C8DC)] text-[var(--color-text,#3D3548)] hover:brightness-95 shadow-xs cursor-pointer active:scale-95 transition-transform"
           >
             Save Changes
           </button>

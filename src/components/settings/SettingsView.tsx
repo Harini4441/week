@@ -13,7 +13,17 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { UserScheduleConfig } from '../../types';
-import { playChime, playCelebration } from '../../utils/audio';
+import {
+  playChime,
+  playCelebration,
+  playTaskAlarm,
+  unlockAudioContext,
+  getAlarmVolume,
+  setAlarmVolume,
+  getChimeType,
+  setChimeType,
+  ChimeType,
+} from '../../utils/audio';
 
 interface SettingsViewProps {
   scheduleConfig: UserScheduleConfig;
@@ -37,12 +47,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [wake, setWake] = useState(scheduleConfig.wakeTime);
   const [sleep, setSleep] = useState(scheduleConfig.sleepTime);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [volume, setVolume] = useState<number>(() => getAlarmVolume());
+  const [selectedChime, setSelectedChime] = useState<ChimeType>(() => getChimeType());
+  const [testPlaying, setTestPlaying] = useState(false);
   const [notificationStatus, setNotificationStatus] = useState<string>(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
       return Notification.permission;
     }
     return 'unsupported';
   });
+
+  const handleChimeSelect = async (type: ChimeType) => {
+    setSelectedChime(type);
+    setChimeType(type);
+    setTestPlaying(true);
+    await unlockAudioContext();
+    playTaskAlarm(type);
+    setTimeout(() => setTestPlaying(false), 1200);
+  };
+
+  const handleVolumeChange = (newVol: number) => {
+    setVolume(newVol);
+    setAlarmVolume(newVol);
+  };
 
   const handleSaveHours = (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,41 +255,104 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </button>
           </form>
 
-          {/* Notifications config */}
+          {/* Notifications & Web Audio Alarm config */}
           <div className="space-y-3 pt-3 border-t border-[var(--color-border,#F1E4DF)]">
-            <div className="flex items-center gap-2">
-              <Bell className="w-4 h-4 text-[var(--color-muted,#7B6F8A)]" />
-              <span className="text-xs font-bold text-[var(--color-text,#3D3548)]">
-                Smart Notifications
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bell className="w-4 h-4 text-[var(--color-accent,#E78EA9)]" />
+                <span className="text-xs font-bold text-[var(--color-text,#3D3548)]">
+                  Web Audio API Chimes & Browser Notifications
+                </span>
+              </div>
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                Background Active
               </span>
             </div>
 
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center justify-between text-xs p-2.5 rounded-2xl bg-[var(--color-bg,#FFF9F2)] border border-[var(--color-border,#F1E4DF)]">
               <span className="text-[var(--color-muted,#7B6F8A)]">
-                Browser Permission: <strong>{notificationStatus}</strong>
+                Browser Notification Permission: <strong>{notificationStatus}</strong>
               </span>
 
               {notificationStatus !== 'granted' && (
                 <button
+                  type="button"
                   onClick={handleRequestNotification}
-                  className="px-3 py-1 rounded-xl bg-[var(--color-bg,#FFF9F2)] border border-[var(--color-border,#F1E4DF)] text-xs font-semibold text-[var(--color-text,#3D3548)] hover:bg-[var(--color-primary,#F8C8DC)]/30"
+                  className="px-3 py-1 rounded-xl bg-[var(--color-card,#FFFFFF)] border border-[var(--color-border,#F1E4DF)] text-xs font-semibold text-[var(--color-text,#3D3548)] hover:bg-[var(--color-primary,#F8C8DC)]/30 cursor-pointer"
                 >
-                  Enable Alerts
+                  Enable Permission
                 </button>
               )}
             </div>
 
-            <div className="flex items-center justify-between text-xs pt-1">
-              <span className="text-[var(--color-muted,#7B6F8A)]">
-                Synthetic Web Audio Chimes
-              </span>
-              <button
-                onClick={() => playCelebration()}
-                className="px-3 py-1 rounded-xl bg-[var(--color-bg,#FFF9F2)] border border-[var(--color-border,#F1E4DF)] text-xs font-semibold text-[var(--color-text,#3D3548)] hover:bg-[var(--color-primary,#F8C8DC)]/30"
-              >
-                Test Chime 🔔
-              </button>
+            {/* Chime presets */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-medium text-[var(--color-muted,#7B6F8A)] block">
+                Start-Time Alarm Chime Sound:
+              </label>
+              <div className="grid grid-cols-2 gap-1.5 text-xs font-semibold">
+                {[
+                  { id: 'pastel' as ChimeType, name: '🌸 Pastel Chime' },
+                  { id: 'temple' as ChimeType, name: '🔔 Temple Bell' },
+                  { id: 'marimba' as ChimeType, name: '🎵 Marimba' },
+                  { id: 'crystal' as ChimeType, name: '✨ Crystal Bell' },
+                ].map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => handleChimeSelect(p.id)}
+                    className={`py-2 px-3 rounded-xl border text-left text-xs font-bold transition-all cursor-pointer ${
+                      selectedChime === p.id
+                        ? 'bg-[var(--color-primary,#F8C8DC)]/40 border-[var(--color-primary,#F8C8DC)] text-[var(--color-text,#3D3548)] shadow-2xs'
+                        : 'bg-[var(--color-bg,#FFF9F2)] border-[var(--color-border,#F1E4DF)] text-[var(--color-muted,#7B6F8A)] hover:border-[var(--color-primary,#F8C8DC)]'
+                    }`}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Volume */}
+            <div className="space-y-1.5 p-3 rounded-2xl bg-[var(--color-bg,#FFF9F2)] border border-[var(--color-border,#F1E4DF)]">
+              <div className="flex items-center justify-between text-xs font-semibold text-[var(--color-text,#3D3548)]">
+                <span className="flex items-center gap-1.5">
+                  <Volume2 className="w-3.5 h-3.5 text-[var(--color-accent,#E78EA9)]" />
+                  <span>Alarm Volume:</span>
+                </span>
+                <span className="text-[var(--color-accent,#E78EA9)] font-bold tabular-nums">
+                  {Math.round(volume * 100)}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0.1"
+                max="1.0"
+                step="0.05"
+                value={volume}
+                onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                className="w-full accent-[var(--color-accent,#E78EA9)] cursor-pointer"
+              />
+            </div>
+
+            {/* Test Alarm Sound Button */}
+            <button
+              type="button"
+              onClick={async () => {
+                setTestPlaying(true);
+                await unlockAudioContext();
+                playTaskAlarm();
+                setTimeout(() => setTestPlaying(false), 1200);
+              }}
+              className={`w-full py-2 px-3 rounded-2xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 ${
+                testPlaying
+                  ? 'bg-[var(--color-primary,#F8C8DC)] text-[var(--color-text,#3D3548)] animate-pulse'
+                  : 'bg-[var(--color-bg,#FFF9F2)] border-[var(--color-border,#F1E4DF)] text-[var(--color-text,#3D3548)] hover:border-[var(--color-primary,#F8C8DC)]'
+              }`}
+            >
+              <Volume2 className="w-3.5 h-3.5 text-[var(--color-accent,#E78EA9)]" />
+              <span>{testPlaying ? 'Playing Chime... 🎵' : 'Test Chime Alarm Sound 🔔'}</span>
+            </button>
           </div>
         </div>
       </div>

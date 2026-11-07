@@ -9,11 +9,10 @@ import {
   Grid2X2,
   Hourglass,
   BarChart3,
-  Sparkles,
   Settings,
   FolderOpen,
   Plus,
-  Smartphone,
+  Cloud,
 } from 'lucide-react';
 import { Category } from '../types';
 
@@ -27,7 +26,6 @@ export type MainTab =
   | 'matrix'
   | 'countdowns'
   | 'analytics'
-  | 'ai'
   | 'settings';
 
 interface SidebarProps {
@@ -37,9 +35,10 @@ interface SidebarProps {
   selectedCategory: string | null;
   onSelectCategory: (catName: string | null) => void;
   onOpenNewCategoryModal: () => void;
-  onOpenInstallPhone: () => void;
+  onOpenSync: () => void;
   pendingTaskCount: number;
   habitsDueToday: number;
+  syncStatus: 'connecting' | 'synced' | 'offline' | 'error';
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -49,22 +48,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
   selectedCategory,
   onSelectCategory,
   onOpenNewCategoryModal,
-  onOpenInstallPhone,
+  onOpenSync,
   pendingTaskCount,
   habitsDueToday,
+  syncStatus,
 }) => {
   const navItems = [
     { id: 'dashboard' as MainTab, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'tasks' as MainTab, label: 'Tasks', icon: CheckSquare, badge: pendingTaskCount },
     { id: 'calendar' as MainTab, label: 'Calendar', icon: Calendar },
     { id: 'freetime' as MainTab, label: 'Free Time', icon: Clock, highlight: true },
-    { id: 'habits' as MainTab, label: 'Habit Tracker', icon: HeartHandshake, badge: habitsDueToday > 0 ? habitsDueToday : undefined },
+    { id: 'habits' as MainTab, label: 'Habits', icon: HeartHandshake, badge: habitsDueToday > 0 ? habitsDueToday : undefined },
     { id: 'pomodoro' as MainTab, label: 'Pomodoro Focus', icon: Timer },
     { id: 'matrix' as MainTab, label: 'Eisenhower Matrix', icon: Grid2X2 },
-    { id: 'countdowns' as MainTab, label: 'Countdowns', icon: Hourglass },
+    { id: 'countdowns' as MainTab, label: 'D-Day Countdowns', icon: Hourglass },
     { id: 'analytics' as MainTab, label: 'Analytics', icon: BarChart3 },
-    { id: 'ai' as MainTab, label: 'AI Assistant', icon: Sparkles },
-    { id: 'settings' as MainTab, label: 'Cloud & Preferences', icon: Settings },
+    { id: 'settings' as MainTab, label: 'Settings & Sync', icon: Settings },
   ];
 
   return (
@@ -125,7 +124,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={onOpenNewCategoryModal}
               title="Add Custom Category"
-              className="p-0.5 rounded text-[var(--color-muted,#7B6F8A)] hover:text-[var(--color-text,#3D3548)] hover:bg-[var(--color-primary,#F8C8DC)]/30 transition-colors"
+              className="p-0.5 rounded text-[var(--color-muted,#7B6F8A)] hover:text-[var(--color-text,#3D3548)] hover:bg-[var(--color-primary,#F8C8DC)]/30 transition-colors cursor-pointer"
             >
               <Plus className="w-3 h-3" />
             </button>
@@ -177,14 +176,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* Encouragement & Install Card at bottom */}
+      {/* Cloud Sync Status & Encouragement at bottom */}
       <div className="pt-2 border-t border-[var(--color-border,#F1E4DF)] space-y-2">
         <button
-          onClick={onOpenInstallPhone}
+          onClick={onOpenSync}
           className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-xl bg-[var(--color-primary,#F8C8DC)]/30 hover:bg-[var(--color-primary,#F8C8DC)]/50 text-[var(--color-text,#3D3548)] text-xs font-semibold transition-all cursor-pointer"
         >
-          <Smartphone className="w-3.5 h-3.5 text-[var(--color-accent,#E78EA9)]" />
-          <span>Install on Phone</span>
+          <Cloud className={`w-3.5 h-3.5 ${syncStatus === 'synced' ? 'text-emerald-500' : 'text-amber-500'}`} />
+          <span>Cloud Sync</span>
         </button>
 
         <div className="p-2 rounded-xl bg-[var(--color-bg,#FFF9F2)] text-center">

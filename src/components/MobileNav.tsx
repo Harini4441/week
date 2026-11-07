@@ -31,7 +31,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
   ];
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--color-card,#FFFFFF)]/95 backdrop-blur-md border-t border-[var(--color-border,#F1E4DF)] px-2 py-1 flex items-center justify-around shadow-lg">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--color-card,#FFFFFF)]/95 backdrop-blur-md border-t border-[var(--color-border,#F1E4DF)] px-1 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex items-center justify-around shadow-lg">
       {quickItems.map((item) => {
         const Icon = item.icon;
         const isActive = activeTab === item.id;
@@ -39,21 +39,21 @@ export const MobileNav: React.FC<MobileNavProps> = ({
           <button
             key={item.id}
             onClick={() => onSelectTab(item.id)}
-            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[10px] font-medium transition-all cursor-pointer ${
+            className={`flex flex-col items-center justify-center min-w-[44px] py-1 px-1.5 rounded-xl text-[10px] font-medium transition-all cursor-pointer ${
               isActive
-                ? 'text-[var(--color-accent,#E78EA9)] font-bold'
+                ? 'text-[var(--color-accent,#E78EA9)] font-bold scale-105'
                 : 'text-[var(--color-muted,#7B6F8A)] hover:text-[var(--color-text,#3D3548)]'
             }`}
           >
             <Icon className={`w-4 h-4 mb-0.5 ${isActive ? 'stroke-[2.5]' : ''}`} />
-            <span>{item.label}</span>
+            <span className="truncate">{item.label}</span>
           </button>
         );
       })}
 
       <button
         onClick={onOpenMoreMenu}
-        className="flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[10px] font-medium text-[var(--color-muted,#7B6F8A)] hover:text-[var(--color-text,#3D3548)] cursor-pointer"
+        className="flex flex-col items-center justify-center min-w-[44px] py-1 px-1.5 rounded-xl text-[10px] font-medium text-[var(--color-muted,#7B6F8A)] hover:text-[var(--color-text,#3D3548)] cursor-pointer"
       >
         <MoreHorizontal className="w-4 h-4 mb-0.5" />
         <span>More</span>

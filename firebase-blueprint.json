@@ -1,0 +1,114 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with configuration",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "themeId": { "type": "string" },
+        "wakeTime": { "type": "string" },
+        "sleepTime": { "type": "string" },
+        "dailyGoalFocusMinutes": { "type": "number" },
+        "dailyGoalTasks": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "User scheduled task",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string", "maxLength": 300 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "category": { "type": "string" },
+        "priority": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "startTime": { "type": "string" },
+        "durationMinutes": { "type": "number" },
+        "completed": { "type": "boolean" },
+        "completedAt": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["id", "userId", "title", "category", "priority"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Task category",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "emoji": { "type": "string" },
+        "color": { "type": "string" },
+        "isCustom": { "type": "boolean" }
+      },
+      "required": ["id", "userId", "name"]
+    },
+    "Habit": {
+      "title": "Habit",
+      "description": "Habit item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "emoji": { "type": "string" },
+        "category": { "type": "string" },
+        "frequency": { "type": "string" },
+        "targetDaysPerWeek": { "type": "number" },
+        "streak": { "type": "number" },
+        "bestStreak": { "type": "number" },
+        "completions": { "type": "object" },
+        "reminderTime": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "name"]
+    },
+    "Countdown": {
+      "title": "Countdown",
+      "description": "Milestone countdown",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string" },
+        "targetDate": { "type": "string" },
+        "targetTime": { "type": "string" },
+        "emoji": { "type": "string" },
+        "themeColor": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "userId", "title", "targetDate"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile document"
+    },
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "User task collection"
+    },
+    "/users/{userId}/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "User custom categories"
+    },
+    "/users/{userId}/habits/{habitId}": {
+      "schema": "Habit",
+      "description": "User habits"
+    },
+    "/users/{userId}/countdowns/{countdownId}": {
+      "schema": "Countdown",
+      "description": "User countdown milestones"
+    }
+  }
+}
