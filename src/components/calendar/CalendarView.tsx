@@ -5,9 +5,12 @@ import {
   Clock,
   Plus,
   AlertTriangle,
+  Sliders,
+  Sparkles,
+  X,
 } from 'lucide-react';
 import { Task, Category, UserScheduleConfig } from '../../types';
-import { detectConflicts, TimeInterval } from '../../utils/freeTimeCalculator';
+import { detectConflicts, TimeInterval, calculateDayFreeTime } from '../../utils/freeTimeCalculator';
 
 interface CalendarViewProps {
   tasks: Task[];
@@ -17,16 +20,23 @@ interface CalendarViewProps {
   onOpenQuickAddWithDate: (dateStr: string, timeStr?: string) => void;
   onImportCalendar: () => void;
   onExportCalendar: () => void;
+  onUpdateScheduleConfig?: (config: UserScheduleConfig) => void;
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
   tasks,
   categories,
+  scheduleConfig,
   onSelectTask,
   onOpenQuickAddWithDate,
+  onUpdateScheduleConfig,
 }) => {
   const [viewMode, setViewMode] = useState<'week' | 'month' | 'day'>('week');
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
+  const [showTimingModal, setShowTimingModal] = useState(false);
+  const [tempWake, setTempWake] = useState(scheduleConfig?.wakeTime || '07:00');
+  const [tempSleep, setTempSleep] = useState(scheduleConfig?.sleepTime || '23:00');
+  const [showFreeTimeSlots, setShowFreeTimeSlots] = useState(true);
 
   const todayStr = new Date().toISOString().split('T')[0];
   const HOUR_HEIGHT = 64; // pixels per hour block
@@ -74,14 +84,35 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     setCurrentDate(new Date());
   };
 
-  // Hours array from 07:00 to 23:00 (17 hours)
-  const hours = useMemo(() => {
+  // Week scheduled tasks
+  const weekTasks = useMemo(() => {
+    const weekDates = new Set(weekDays.map((w) => w.dateStr));
+    return tasks.filter((t) => !t.completed && t.dueDate && weekDates.has(t.dueDate) && t.startTime);
+  }, [tasks, weekDays]);
+
+  // Flexible calendar hours: strictly adheres to the Free Time Calculator timing the user gives
+  const { startHour, endHour, hours } = useMemo(() => {
+    const wakeStr = scheduleConfig?.wakeTime || '07:00';
+    const sleepStr = scheduleConfig?.sleepTime || '23:00';
+
+    const [wakeH] = wakeStr.split(':').map((v) => parseInt(v, 10) || 0);
+    const [sleepH, sleepM] = sleepStr.split(':').map((v) => parseInt(v, 10) || 0);
+
+    const sHour = Math.max(0, Math.min(23, wakeH));
+    let eHour = sleepM > 0 ? sleepH + 1 : sleepH;
+
+    // Handle wrap-around or late-night schedules
+    if (eHour <= sHour) {
+      eHour = 24;
+    }
+    eHour = Math.min(24, Math.max(eHour, sHour + 1));
+
     const list: number[] = [];
-    for (let h = 7; h <= 23; h++) {
+    for (let h = sHour; h <= eHour; h++) {
       list.push(h);
     }
-    return list;
-  }, []);
+    return { startHour: sHour, endHour: eHour, hours: list };
+  }, [scheduleConfig?.wakeTime, scheduleConfig?.sleepTime]);
 
   // Category map for colors
   const categoryColorMap = useMemo(() => {
@@ -100,12 +131,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     const endM = totalMinutes % 60;
     return `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
   };
-
-  // Check week conflicts
-  const weekTasks = useMemo(() => {
-    const weekDates = new Set(weekDays.map((w) => w.dateStr));
-    return tasks.filter((t) => !t.completed && t.dueDate && weekDates.has(t.dueDate) && t.startTime);
-  }, [tasks, weekDays]);
 
   const hasAnyConflict = useMemo(() => {
     const intervals: TimeInterval[] = weekTasks.map((t) => {
@@ -150,40 +175,77 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           <span className="text-sm font-bold text-[var(--color-text,#3D3548)] ml-2">
             {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </span>
+
+          {/* Interactive Timing Badge flexible to Free Time Calculator */}
+          <button
+            onClick={() => {
+              setTempWake(scheduleConfig?.wakeTime || '07:00');
+              setTempSleep(scheduleConfig?.sleepTime || '23:00');
+              setShowTimingModal(true);
+            }}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-[var(--color-bg,#FFF9F2)] hover:bg-[var(--color-primary,#F8C8DC)]/30 border border-[var(--color-border,#F1E4DF)] text-[11px] sm:text-xs font-semibold text-[var(--color-text,#3D3548)] transition-all cursor-pointer shadow-2xs ml-1"
+            title="Adjust calendar timings synced with Free Time Calculator"
+          >
+            <Clock className="w-3.5 h-3.5 text-[var(--color-accent,#E78EA9)] shrink-0" />
+            <span className="tabular-nums">{scheduleConfig?.wakeTime || '07:00'} – {scheduleConfig?.sleepTime || '23:00'}</span>
+            <Sliders className="w-3 h-3 text-[var(--color-muted,#7B6F8A)] shrink-0" />
+          </button>
         </div>
 
-        {/* View Mode Switcher */}
-        <div className="flex items-center gap-1 p-1 rounded-2xl bg-[var(--color-bg,#FFF9F2)] border border-[var(--color-border,#F1E4DF)] text-xs">
+        {/* View Mode & Free Time Toggle */}
+        <div className="flex items-center gap-2">
+          {/* Toggle to show Free Time Calculator gaps directly on calendar grid */}
           <button
-            onClick={() => setViewMode('week')}
-            className={`px-3 py-1 rounded-xl transition-all cursor-pointer ${
-              viewMode === 'week'
-                ? 'bg-[var(--color-card,#FFFFFF)] text-[var(--color-text,#3D3548)] font-semibold shadow-xs'
-                : 'text-[var(--color-muted,#7B6F8A)] hover:text-[var(--color-text,#3D3548)]'
+            onClick={() => setShowFreeTimeSlots(!showFreeTimeSlots)}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-2xl text-xs font-semibold transition-all cursor-pointer border ${
+              showFreeTimeSlots
+                ? 'bg-emerald-500/15 border-emerald-400/50 text-emerald-900 dark:text-emerald-200'
+                : 'bg-[var(--color-bg,#FFF9F2)] border-[var(--color-border,#F1E4DF)] text-[var(--color-muted,#7B6F8A)] hover:text-[var(--color-text,#3D3548)]'
             }`}
+            title="Toggle showing free time calculator slots on the calendar"
           >
-            Week
+            <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            <span className="hidden sm:inline">Free Time</span>
+            <span className={`text-[10px] px-1 py-0.2 rounded font-bold ${
+              showFreeTimeSlots ? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300' : 'text-[var(--color-muted,#7B6F8A)]'
+            }`}>
+              {showFreeTimeSlots ? 'ON' : 'OFF'}
+            </span>
           </button>
-          <button
-            onClick={() => setViewMode('month')}
-            className={`px-3 py-1 rounded-xl transition-all cursor-pointer ${
-              viewMode === 'month'
-                ? 'bg-[var(--color-card,#FFFFFF)] text-[var(--color-text,#3D3548)] font-semibold shadow-xs'
-                : 'text-[var(--color-muted,#7B6F8A)] hover:text-[var(--color-text,#3D3548)]'
-            }`}
-          >
-            Month
-          </button>
-          <button
-            onClick={() => setViewMode('day')}
-            className={`px-3 py-1 rounded-xl transition-all cursor-pointer ${
-              viewMode === 'day'
-                ? 'bg-[var(--color-card,#FFFFFF)] text-[var(--color-text,#3D3548)] font-semibold shadow-xs'
-                : 'text-[var(--color-muted,#7B6F8A)] hover:text-[var(--color-text,#3D3548)]'
-            }`}
-          >
-            Day
-          </button>
+
+          {/* View Mode Switcher */}
+          <div className="flex items-center gap-1 p-1 rounded-2xl bg-[var(--color-bg,#FFF9F2)] border border-[var(--color-border,#F1E4DF)] text-xs">
+            <button
+              onClick={() => setViewMode('week')}
+              className={`px-3 py-1 rounded-xl transition-all cursor-pointer ${
+                viewMode === 'week'
+                  ? 'bg-[var(--color-card,#FFFFFF)] text-[var(--color-text,#3D3548)] font-semibold shadow-xs'
+                  : 'text-[var(--color-muted,#7B6F8A)] hover:text-[var(--color-text,#3D3548)]'
+              }`}
+            >
+              Week
+            </button>
+            <button
+              onClick={() => setViewMode('month')}
+              className={`px-3 py-1 rounded-xl transition-all cursor-pointer ${
+                viewMode === 'month'
+                  ? 'bg-[var(--color-card,#FFFFFF)] text-[var(--color-text,#3D3548)] font-semibold shadow-xs'
+                  : 'text-[var(--color-muted,#7B6F8A)] hover:text-[var(--color-text,#3D3548)]'
+              }`}
+            >
+              Month
+            </button>
+            <button
+              onClick={() => setViewMode('day')}
+              className={`px-3 py-1 rounded-xl transition-all cursor-pointer ${
+                viewMode === 'day'
+                  ? 'bg-[var(--color-card,#FFFFFF)] text-[var(--color-text,#3D3548)] font-semibold shadow-xs'
+                  : 'text-[var(--color-muted,#7B6F8A)] hover:text-[var(--color-text,#3D3548)]'
+              }`}
+            >
+              Day
+            </button>
+          </div>
         </div>
       </div>
 
@@ -252,11 +314,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
                   {/* 7 Day Columns */}
                   {weekDays.map((day) => {
-                    // All tasks scheduled on this day with a start time
+                    // Day free time calculated dynamically matching Free Time Calculator
+                    const daySummary = calculateDayFreeTime(day.dateStr, tasks, scheduleConfig);
+
+                    // All tasks scheduled on this day with a start time within visible flexible hours
                     const dayTasks = tasks.filter((t) => {
                       if (!t.dueDate || t.dueDate !== day.dateStr || !t.startTime) return false;
                       const [h] = t.startTime.split(':').map((v) => parseInt(v, 10));
-                      return h >= 7 && h <= 23;
+                      return h >= startHour && h <= endHour;
                     });
 
                     return (
@@ -281,12 +346,41 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                           );
                         })}
 
+                        {/* Free Time Calculator Slots: dynamically rendered open spaces */}
+                        {showFreeTimeSlots && daySummary.freeSlots.map((slot, sIdx) => {
+                          const [sH, sM] = slot.start.split(':').map((v) => parseInt(v, 10));
+                          const startMinutesFromStart = (sH - startHour) * 60 + sM;
+                          if (startMinutesFromStart < 0) return null;
+                          const topPx = (startMinutesFromStart / 60) * HOUR_HEIGHT;
+                          const heightPx = Math.max(26, (slot.durationMinutes / 60) * HOUR_HEIGHT - 3);
+
+                          return (
+                            <div
+                              key={`freeslot-${sIdx}`}
+                              onClick={() => onOpenQuickAddWithDate(day.dateStr, slot.start)}
+                              style={{
+                                top: `${topPx}px`,
+                                height: `${heightPx}px`,
+                              }}
+                              className="absolute left-1 right-1 rounded-xl px-1.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-dashed border-emerald-400/50 text-emerald-900 dark:text-emerald-300 z-5 transition-all cursor-pointer flex items-center justify-between group overflow-hidden select-none"
+                              title={`🌷 Free Time: ${slot.start} – ${slot.end} (${slot.durationMinutes}m). Click to schedule!`}
+                            >
+                              <div className="flex items-center gap-1 text-[10px] font-semibold truncate leading-none">
+                                <span>🌷</span>
+                                <span className="tabular-nums font-bold">{slot.start}–{slot.end}</span>
+                                <span className="text-[9px] opacity-75 hidden xl:inline">({slot.durationMinutes}m)</span>
+                              </div>
+                              <Plus className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          );
+                        })}
+
                         {/* Physically Expanded Task Time-Blocks */}
                         {dayTasks.map((t) => {
                           const [startH, startM] = t.startTime!.split(':').map((v) => parseInt(v, 10));
-                          const startMinutesFrom7 = (startH - 7) * 60 + startM;
+                          const startMinutesFromStart = (startH - startHour) * 60 + startM;
                           const durationM = t.durationMinutes || 60;
-                          const topPx = (startMinutesFrom7 / 60) * HOUR_HEIGHT;
+                          const topPx = (startMinutesFromStart / 60) * HOUR_HEIGHT;
                           const heightPx = Math.max(34, (durationM / 60) * HOUR_HEIGHT - 3);
                           const endTimeStr = getEndTimeString(t.startTime!, durationM);
                           const bg = categoryColorMap[t.category] || 'var(--color-primary,#F8C8DC)';
@@ -410,54 +504,160 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       )}
 
       {/* Day View */}
-      {viewMode === 'day' && (
-        <div className="p-4 sm:p-6 rounded-3xl bg-[var(--color-card,#FFFFFF)] border border-[var(--color-border,#F1E4DF)] shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold text-[var(--color-text,#3D3548)]">
-              Daily Schedule: {currentDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-            </h3>
-            <button
-              onClick={() => onOpenQuickAddWithDate(currentDate.toISOString().split('T')[0])}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--color-primary,#F8C8DC)] text-xs font-semibold text-[var(--color-text,#3D3548)] hover:brightness-95 transition-all cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Task</span>
-            </button>
-          </div>
+      {viewMode === 'day' && (() => {
+        const dayStr = currentDate.toISOString().split('T')[0];
+        const daySummary = calculateDayFreeTime(dayStr, tasks, scheduleConfig);
 
-          <div className="space-y-2">
-            {tasks
-              .filter((t) => t.dueDate === currentDate.toISOString().split('T')[0])
-              .sort((a, b) => (a.startTime || '99:99').localeCompare(b.startTime || '99:99'))
-              .map((t) => {
-                const endTimeStr = t.startTime ? getEndTimeString(t.startTime, t.durationMinutes || 60) : '';
-                const bg = categoryColorMap[t.category] || 'var(--color-primary,#F8C8DC)';
-                return (
-                  <div
-                    key={t.id}
-                    onClick={() => onSelectTask(t)}
-                    style={{ borderLeftColor: bg }}
-                    className="p-3 rounded-2xl border border-[var(--color-border,#F1E4DF)] border-l-4 hover:border-[var(--color-primary,#F8C8DC)] bg-[var(--color-bg,#FFF9F2)]/40 transition-all cursor-pointer flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="text-xs font-bold text-[var(--color-text,#3D3548)] tabular-nums bg-[var(--color-card,#FFFFFF)] px-2.5 py-1 rounded-lg border border-[var(--color-border,#F1E4DF)]">
-                        {t.startTime ? `${t.startTime} – ${endTimeStr}` : 'All Day'}
+        return (
+          <div className="p-4 sm:p-6 rounded-3xl bg-[var(--color-card,#FFFFFF)] border border-[var(--color-border,#F1E4DF)] shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-[var(--color-text,#3D3548)]">
+                Daily Schedule: {currentDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              </h3>
+              <button
+                onClick={() => onOpenQuickAddWithDate(dayStr)}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[var(--color-primary,#F8C8DC)] text-xs font-semibold text-[var(--color-text,#3D3548)] hover:brightness-95 transition-all cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Task</span>
+              </button>
+            </div>
+
+            {/* Day Free Time Banner flexible to user's schedule timings */}
+            <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-400/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-200">
+                <span className="text-base">🌷</span>
+                <div>
+                  <span className="font-bold">Free Time: {daySummary.freeHours} hours </span>
+                  <span className="text-emerald-800/80 dark:text-emerald-300">({daySummary.awakeHours}h awake window, {scheduleConfig?.wakeTime || '07:00'} – {scheduleConfig?.sleepTime || '23:00'})</span>
+                </div>
+              </div>
+              {daySummary.freeSlots.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-medium text-emerald-800/80 dark:text-emerald-300">Open Slots:</span>
+                  {daySummary.freeSlots.slice(0, 3).map((slot, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => onOpenQuickAddWithDate(dayStr, slot.start)}
+                      className="px-2 py-0.5 rounded-lg bg-[var(--color-card,#FFFFFF)] border border-emerald-400/60 text-[11px] font-semibold text-emerald-800 hover:bg-emerald-50 transition-colors cursor-pointer"
+                      title="Click to schedule a task in this slot"
+                    >
+                      + {slot.start} ({slot.durationMinutes}m)
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              {tasks
+                .filter((t) => t.dueDate === dayStr)
+                .sort((a, b) => (a.startTime || '99:99').localeCompare(b.startTime || '99:99'))
+                .map((t) => {
+                  const endTimeStr = t.startTime ? getEndTimeString(t.startTime, t.durationMinutes || 60) : '';
+                  const bg = categoryColorMap[t.category] || 'var(--color-primary,#F8C8DC)';
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => onSelectTask(t)}
+                      style={{ borderLeftColor: bg }}
+                      className="p-3 rounded-2xl border border-[var(--color-border,#F1E4DF)] border-l-4 hover:border-[var(--color-primary,#F8C8DC)] bg-[var(--color-bg,#FFF9F2)]/40 transition-all cursor-pointer flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="text-xs font-bold text-[var(--color-text,#3D3548)] tabular-nums bg-[var(--color-card,#FFFFFF)] px-2.5 py-1 rounded-lg border border-[var(--color-border,#F1E4DF)]">
+                          {t.startTime ? `${t.startTime} – ${endTimeStr}` : 'All Day'}
+                        </div>
+                        <div>
+                          <span className={`text-xs font-semibold text-[var(--color-text,#3D3548)] ${t.completed ? 'line-through opacity-60' : ''}`}>
+                            {t.title}
+                          </span>
+                          <span className="text-[11px] text-[var(--color-muted,#7B6F8A)] block">
+                            {t.category} · {t.durationMinutes}m duration
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <span className={`text-xs font-semibold text-[var(--color-text,#3D3548)] ${t.completed ? 'line-through opacity-60' : ''}`}>
-                          {t.title}
-                        </span>
-                        <span className="text-[11px] text-[var(--color-muted,#7B6F8A)] block">
-                          {t.category} · {t.durationMinutes}m duration
-                        </span>
-                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[var(--color-primary,#F8C8DC)]/50 text-[var(--color-text,#3D3548)]">
+                        {t.priority}
+                      </span>
                     </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[var(--color-primary,#F8C8DC)]/50 text-[var(--color-text,#3D3548)]">
-                      {t.priority}
-                    </span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Schedule Timing Modal (Flexibly adjusts Calendar and Free Time Calculator timings) */}
+      {showTimingModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+          <div className="w-full max-w-sm rounded-3xl bg-[var(--color-card,#FFFFFF)] border border-[var(--color-border,#F1E4DF)] p-5 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🌷</span>
+                <h3 className="text-sm font-bold text-[var(--color-text,#3D3548)]">
+                  Calendar & Free Time Schedule
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowTimingModal(false)}
+                className="p-1 rounded-xl text-[var(--color-muted,#7B6F8A)] hover:bg-[var(--color-bg,#FFF9F2)] cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-[var(--color-muted,#7B6F8A)] leading-relaxed">
+              Adjust your daily awake hours. The calendar hourly grid and Free Time Calculator instantly adapt to the flexible timing you give.
+            </p>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] font-bold text-[var(--color-text,#3D3548)] block mb-1">
+                  Wake / Day Start
+                </label>
+                <input
+                  type="time"
+                  value={tempWake}
+                  onChange={(e) => setTempWake(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-[var(--color-border,#F1E4DF)] bg-[var(--color-bg,#FFF9F2)] text-xs font-semibold text-[var(--color-text,#3D3548)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary,#F8C8DC)]"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold text-[var(--color-text,#3D3548)] block mb-1">
+                  Sleep / Day End
+                </label>
+                <input
+                  type="time"
+                  value={tempSleep}
+                  onChange={(e) => setTempSleep(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-[var(--color-border,#F1E4DF)] bg-[var(--color-bg,#FFF9F2)] text-xs font-semibold text-[var(--color-text,#3D3548)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary,#F8C8DC)]"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={() => setShowTimingModal(false)}
+                className="px-3.5 py-1.5 rounded-xl border border-[var(--color-border,#F1E4DF)] text-xs font-semibold text-[var(--color-muted,#7B6F8A)] hover:bg-[var(--color-bg,#FFF9F2)] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (onUpdateScheduleConfig) {
+                    onUpdateScheduleConfig({
+                      ...scheduleConfig,
+                      wakeTime: tempWake,
+                      sleepTime: tempSleep,
+                    });
+                  }
+                  setShowTimingModal(false);
+                }}
+                className="px-4 py-1.5 rounded-xl bg-[var(--color-primary,#F8C8DC)] hover:brightness-95 text-xs font-bold text-[var(--color-text,#3D3548)] cursor-pointer shadow-xs"
+              >
+                Save Timing
+              </button>
+            </div>
           </div>
         </div>
       )}

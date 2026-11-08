@@ -187,13 +187,14 @@ function generateFallbackResponse(action: string, prompt: string = '', context: 
 }
 
 function getPort(): number {
-  if (process.env.PORT) {
-    const p = parseInt(process.env.PORT, 10);
-    if (!isNaN(p)) return p;
-  }
   const portArgIndex = process.argv.indexOf('--port');
   if (portArgIndex !== -1 && process.argv[portArgIndex + 1]) {
     const p = parseInt(process.argv[portArgIndex + 1], 10);
+    if (!isNaN(p)) return p;
+  }
+  // In production (Cloud Run), honor process.env.PORT. In development, always bind to 3000.
+  if (process.env.NODE_ENV === 'production' && process.env.PORT) {
+    const p = parseInt(process.env.PORT, 10);
     if (!isNaN(p)) return p;
   }
   return 3000;

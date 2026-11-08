@@ -651,6 +651,10 @@ export default function App() {
               tasks={tasks}
               categories={categories}
               scheduleConfig={scheduleConfig}
+              onUpdateScheduleConfig={(c) => {
+                setScheduleConfig(c);
+                syncConfigToCloud(c, currentTheme.id);
+              }}
               onSelectTask={(t) => setSelectedTaskDetail(t)}
               onOpenQuickAddWithDate={(dateStr, timeStr) => {
                 setQuickAddInitialDate(dateStr);
