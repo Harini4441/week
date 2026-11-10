@@ -8,9 +8,15 @@ import {
   Sliders,
   Sparkles,
   X,
+  Copy,
+  CheckCircle2,
+  Circle,
+  ListTodo,
 } from 'lucide-react';
 import { Task, Category, UserScheduleConfig } from '../../types';
 import { detectConflicts, TimeInterval, calculateDayFreeTime } from '../../utils/freeTimeCalculator';
+import { DuplicateScheduleModal } from '../modals/DuplicateScheduleModal';
+import { playCelebration, playChime } from '../../utils/audio';
 
 interface CalendarViewProps {
   tasks: Task[];
@@ -21,6 +27,8 @@ interface CalendarViewProps {
   onImportCalendar: () => void;
   onExportCalendar: () => void;
   onUpdateScheduleConfig?: (config: UserScheduleConfig) => void;
+  onToggleComplete?: (taskId: string) => void;
+  onDuplicateSchedule?: (newTasks: Task[]) => void;
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
@@ -30,10 +38,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   onSelectTask,
   onOpenQuickAddWithDate,
   onUpdateScheduleConfig,
+  onToggleComplete,
+  onDuplicateSchedule,
 }) => {
   const [viewMode, setViewMode] = useState<'week' | 'month' | 'day'>('week');
   const [currentDate, setCurrentDate] = useState<Date>(() => new Date());
   const [showTimingModal, setShowTimingModal] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [tempWake, setTempWake] = useState(scheduleConfig?.wakeTime || '07:00');
   const [tempSleep, setTempSleep] = useState(scheduleConfig?.sleepTime || '23:00');
   const [showFreeTimeSlots, setShowFreeTimeSlots] = useState(true);
@@ -189,6 +200,17 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             <Clock className="w-3.5 h-3.5 text-[var(--color-accent,#E78EA9)] shrink-0" />
             <span className="tabular-nums">{scheduleConfig?.wakeTime || '07:00'} – {scheduleConfig?.sleepTime || '23:00'}</span>
             <Sliders className="w-3 h-3 text-[var(--color-muted,#7B6F8A)] shrink-0" />
+          </button>
+
+          {/* Duplicate / Repeat Schedule Button */}
+          <button
+            onClick={() => setShowDuplicateModal(true)}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-2xl bg-[var(--color-bg,#FFF9F2)] hover:bg-[var(--color-primary,#F8C8DC)]/30 border border-[var(--color-border,#F1E4DF)] text-[11px] sm:text-xs font-semibold text-[var(--color-text,#3D3548)] transition-all cursor-pointer shadow-2xs"
+            title="Duplicate daily schedule or college timetable across days of the week"
+          >
+            <Copy className="w-3.5 h-3.5 text-[var(--color-accent,#E78EA9)] shrink-0" />
+            <span className="hidden md:inline">Duplicate Day</span>
+            <span className="md:hidden">Repeat</span>
           </button>
         </div>
 
@@ -402,19 +424,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                                 t.completed ? 'opacity-60 line-through' : ''
                               }`}
                             >
-                              <div>
+                              <div className="space-y-0.5">
                                 {/* Prominent, Bold Start and End Time Boundaries */}
-                                <div className="text-[10px] sm:text-[11px] font-bold text-[var(--color-text,#3D3548)] tabular-nums flex items-center gap-1">
+                                <div className="text-[10px] sm:text-[11px] font-bold text-[var(--color-text,#3D3548)] tabular-nums flex items-center gap-1 shrink-0">
                                   <Clock className="w-2.5 h-2.5 inline shrink-0 text-[var(--color-muted,#7B6F8A)]" />
                                   <span>{t.startTime} – {endTimeStr}</span>
                                 </div>
-                                <div className="text-[11px] font-semibold text-[var(--color-text,#3D3548)] leading-tight line-clamp-2">
+                                <div className="text-[11px] font-semibold text-[var(--color-text,#3D3548)] leading-snug break-words whitespace-normal">
                                   {t.title}
                                 </div>
                               </div>
-                              <div className="text-[9px] font-medium text-[var(--color-muted,#7B6F8A)] truncate flex items-center justify-between">
-                                <span>{t.category}</span>
-                                <span className="font-bold">{t.durationMinutes}m</span>
+                              <div className="text-[9px] font-medium text-[var(--color-muted,#7B6F8A)] flex items-center justify-between gap-1 pt-0.5">
+                                <span className="truncate">{t.category}</span>
+                                <span className="font-bold shrink-0">{t.durationMinutes}m</span>
                               </div>
                             </div>
                           );
@@ -660,6 +682,96 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Standalone To-Dos Checklist Section (Display both scheduled tasks and To-Dos in Calendar View) */}
+      <div className="p-4 sm:p-5 rounded-3xl bg-[var(--color-card,#FFFFFF)] border border-[var(--color-border,#F1E4DF)] shadow-xs space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ListTodo className="w-4 h-4 text-pink-600 dark:text-pink-400 shrink-0" />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text,#3D3548)]">
+              Standalone To-Do Checklist ({tasks.filter(t => t.isTodo || !t.startTime).length})
+            </h3>
+            <span className="hidden sm:inline text-[11px] text-[var(--color-muted,#7B6F8A)]">
+              (Flexible tasks without a fixed hourly timetable slot)
+            </span>
+          </div>
+          <button
+            onClick={() => onOpenQuickAddWithDate(currentDate.toISOString().split('T')[0])}
+            className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--color-primary,#F8C8DC)]/40 hover:bg-[var(--color-primary,#F8C8DC)] text-[var(--color-text,#3D3548)] transition-all cursor-pointer flex items-center gap-1"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add To-Do</span>
+          </button>
+        </div>
+
+        {tasks.filter(t => t.isTodo || !t.startTime).length === 0 ? (
+          <div className="py-4 text-center text-xs text-[var(--color-muted,#7B6F8A)] italic">
+            No standalone To-Dos. All tasks are currently organized into timetable blocks! 🌸
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            {tasks.filter(t => t.isTodo || !t.startTime).map(todo => (
+              <div
+                key={todo.id}
+                onClick={() => onSelectTask(todo)}
+                className={`p-3 rounded-2xl border border-[var(--color-border,#F1E4DF)] hover:border-[var(--color-primary,#F8C8DC)] bg-[var(--color-bg,#FFF9F2)]/40 hover:bg-[var(--color-bg,#FFF9F2)] transition-all cursor-pointer flex items-start gap-2.5 min-h-fit ${
+                  todo.completed ? 'opacity-60' : ''
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onToggleComplete) {
+                      onToggleComplete(todo.id);
+                      if (!todo.completed) playCelebration();
+                      else playChime();
+                    }
+                  }}
+                  className="mt-0.5 text-[var(--color-muted,#7B6F8A)] hover:text-emerald-500 transition-colors shrink-0 cursor-pointer"
+                >
+                  {todo.completed ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  ) : (
+                    <Circle className="w-4 h-4" />
+                  )}
+                </button>
+                <div className="min-w-0 flex-1">
+                  <p className={`text-xs font-semibold text-[var(--color-text,#3D3548)] break-words whitespace-normal leading-snug ${
+                    todo.completed ? 'line-through text-[var(--color-muted,#7B6F8A)]' : ''
+                  }`}>
+                    {todo.title}
+                  </p>
+                  <div className="mt-1 flex items-center gap-2 text-[10px] text-[var(--color-muted,#7B6F8A)]">
+                    <span>{todo.category}</span>
+                    {todo.dueDate && (
+                      <>
+                        <span>•</span>
+                        <span>Due {todo.dueDate}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Duplicate Schedule Modal */}
+      {showDuplicateModal && (
+        <DuplicateScheduleModal
+          isOpen={showDuplicateModal}
+          onClose={() => setShowDuplicateModal(false)}
+          tasks={tasks}
+          currentDate={currentDate.toISOString().split('T')[0]}
+          onDuplicateTasks={(newTasks) => {
+            if (onDuplicateSchedule) {
+              onDuplicateSchedule(newTasks);
+            }
+          }}
+        />
       )}
     </div>
   );

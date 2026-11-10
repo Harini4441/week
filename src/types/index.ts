@@ -40,6 +40,7 @@ export interface Task {
   color?: string;
   quadrant?: 'urgent-important' | 'not-urgent-important' | 'urgent-not-important' | 'not-urgent-not-important';
   order: number;
+  isTodo?: boolean; // true = standalone checklist To-Do item, false/undefined = scheduled calendar timetable block
 }
 
 export interface Category {

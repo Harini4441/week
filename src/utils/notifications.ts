@@ -118,23 +118,36 @@ export function checkAndTriggerTaskReminders(tasks: Task[]) {
         playTaskAlarm();
       });
 
-      // 2. Trigger native OS Web Notification with requireInteraction so it stays visible
+      // 2. Trigger background OS notification via Service Worker (or Web Notifications fallback)
       if ('Notification' in window && Notification.permission === 'granted') {
-        try {
-          const notif = new Notification(`⏰ [화이팅 🌸] Task Starting Now!`, {
-            body: `"${task.title}" (${task.durationMinutes}m scheduled)\nReady to get focused? 화이팅 🌷`,
-            icon: '/icon-192.png',
-            tag: `hwaiting-task-${task.id}`,
-            requireInteraction: true,
-          } as any);
+        const notifTitle = `⏰ [화이팅 🌸] Task Starting Now!`;
+        const notifOptions = {
+          body: `"${task.title}" (${task.durationMinutes}m scheduled)\nReady to get focused? 화이팅 🌷`,
+          icon: '/icon-192.png',
+          badge: '/icon-192.png',
+          tag: `hwaiting-task-${task.id}`,
+          requireInteraction: true,
+        };
 
-          notif.onclick = () => {
-            window.focus();
-            stopTitleFlashing();
-            notif.close();
-          };
-        } catch (e) {
-          console.warn('Native notification error:', e);
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.ready.then((reg) => {
+            reg.showNotification(notifTitle, notifOptions).catch(() => {
+              new Notification(notifTitle, notifOptions);
+            });
+          }).catch(() => {
+            new Notification(notifTitle, notifOptions);
+          });
+        } else {
+          try {
+            const notif = new Notification(notifTitle, notifOptions);
+            notif.onclick = () => {
+              window.focus();
+              stopTitleFlashing();
+              notif.close();
+            };
+          } catch (e) {
+            console.warn('Native notification error:', e);
+          }
         }
       }
 

@@ -66,3 +66,40 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// Handle Background Push Notifications
+self.addEventListener('push', (event) => {
+  let data = { title: '⏰ [화이팅 🌸] Task Starting!', body: 'Time for your scheduled task! 화이팅 🌷' };
+  try {
+    if (event.data) {
+      data = event.data.json();
+    }
+  } catch (e) {}
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: 'hwaiting-task-alarm',
+      requireInteraction: true,
+    })
+  );
+});
+
+// Focus or Open App when background notification is clicked
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow('/');
+      }
+    })
+  );
+});

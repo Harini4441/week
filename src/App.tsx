@@ -35,13 +35,13 @@ import { CountdownView } from './components/countdowns/CountdownView';
 import { AnalyticsDashboard } from './components/analytics/AnalyticsDashboard';
 import { SettingsView } from './components/settings/SettingsView';
 
-// Modals
 import { TaskDetailModal } from './components/modals/TaskDetailModal';
 import { QuickAddTaskModal } from './components/modals/QuickAddTaskModal';
 import { ThemeSelectorModal } from './components/modals/ThemeSelectorModal';
 import { NewCategoryModal } from './components/modals/NewCategoryModal';
 import { SyncModal } from './components/modals/SyncModal';
 import { AlarmToast } from './components/modals/AlarmToast';
+import { AiScheduleAssistantModal } from './components/modals/AiScheduleAssistantModal';
 
 // Firebase & Cloud Sync
 import { User, testConnection } from './firebase/firebase';
@@ -111,6 +111,7 @@ export default function App() {
   const [quickAddInitialTime, setQuickAddInitialTime] = useState<string | undefined>();
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showNewCategoryModal, setShowNewCategoryModal] = useState(false);
+  const [showAiAssistantModal, setShowAiAssistantModal] = useState(false);
   const [showMobileMore, setShowMobileMore] = useState(false);
 
   // PWA Install Prompt
@@ -332,6 +333,12 @@ export default function App() {
     syncTaskToCloud(newTask);
   };
 
+  // Batch add tasks (from AI Schedule Assistant or Duplicate Schedule)
+  const handleBatchAddTasks = (newTasks: Task[]) => {
+    setTasks((prev) => [...newTasks, ...prev]);
+    newTasks.forEach((t) => syncTaskToCloud(t));
+  };
+
   // Toggle Habit completion today
   const handleToggleHabitToday = (habitId: string) => {
     setHabits((prev) =>
@@ -514,6 +521,7 @@ export default function App() {
         }}
         onOpenThemes={() => setShowThemeModal(true)}
         onOpenSync={() => setShowSyncModal(true)}
+        onOpenAiAssistant={() => setShowAiAssistantModal(true)}
         onToggleDarkMode={handleToggleDarkMode}
         freeHoursToday={todaySummary.freeHours}
         completedTasksToday={completedTodayCount}
@@ -656,6 +664,8 @@ export default function App() {
                 syncConfigToCloud(c, currentTheme.id);
               }}
               onSelectTask={(t) => setSelectedTaskDetail(t)}
+              onToggleComplete={handleToggleTaskComplete}
+              onDuplicateSchedule={handleBatchAddTasks}
               onOpenQuickAddWithDate={(dateStr, timeStr) => {
                 setQuickAddInitialDate(dateStr);
                 setQuickAddInitialTime(timeStr);
@@ -901,6 +911,16 @@ export default function App() {
             setActiveTab('pomodoro');
             setActiveAlarmTask(null);
           }}
+        />
+      )}
+
+      {/* Conversational AI Schedule Assistant Modal */}
+      {showAiAssistantModal && (
+        <AiScheduleAssistantModal
+          isOpen={showAiAssistantModal}
+          onClose={() => setShowAiAssistantModal(false)}
+          categories={categories}
+          onAddTasks={handleBatchAddTasks}
         />
       )}
     </div>

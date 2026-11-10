@@ -14,7 +14,7 @@ import {
   Brain,
 } from 'lucide-react';
 import { Task, FocusSession } from '../../types';
-import { playCelebration, playChime, ambientSound } from '../../utils/audio';
+import { playCelebration, playChime, playTaskAlarm, ambientSound } from '../../utils/audio';
 import confetti from 'canvas-confetti';
 
 interface PomodoroTimerViewProps {
@@ -76,6 +76,8 @@ export const PomodoroTimerView: React.FC<PomodoroTimerViewProps> = ({
   }, [isRunning, mode, durationMinutes, activeTask]);
 
   const handleTimerComplete = () => {
+    // Web Audio API alarm sound so session/break end is unmistakably audible
+    playTaskAlarm();
     playCelebration();
     try {
       confetti({
@@ -219,6 +221,61 @@ export const PomodoroTimerView: React.FC<PomodoroTimerViewProps> = ({
             🌱 Long Break (15m)
           </button>
         </div>
+
+        {/* Sync with Currently Active Scheduled Task Block */}
+        {(() => {
+          const todayStr = new Date().toISOString().split('T')[0];
+          const now = new Date();
+          const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+          const currentScheduledTask = tasks.find((t) => {
+            if (t.completed || t.dueDate !== todayStr || !t.startTime) return false;
+            const [h, m] = t.startTime.split(':').map((v) => parseInt(v, 10));
+            const startMin = h * 60 + m;
+            const endMin = startMin + (t.durationMinutes || 60);
+            return currentMinutes >= startMin && currentMinutes <= endMin;
+          }) || tasks.find((t) => {
+            if (t.completed || t.dueDate !== todayStr || !t.startTime) return false;
+            const [h, m] = t.startTime.split(':').map((v) => parseInt(v, 10));
+            const startMin = h * 60 + m;
+            return startMin >= currentMinutes && startMin <= currentMinutes + 45;
+          }) || tasks.find((t) => !t.completed && t.dueDate === todayStr && t.startTime);
+
+          if (!currentScheduledTask) return null;
+
+          return (
+            <div className="w-full max-w-sm mb-4">
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectActiveTask(currentScheduledTask);
+                  const taskDuration = Math.min(90, Math.max(10, currentScheduledTask.durationMinutes || 25));
+                  setMode('pomodoro');
+                  setDurationMinutes(taskDuration);
+                  setSecondsLeft(taskDuration * 60);
+                  setIsRunning(false);
+                  playChime();
+                }}
+                className="w-full p-2.5 rounded-2xl bg-linear-to-r from-pastel-pink/40 to-pastel-purple/40 hover:from-pastel-pink/60 hover:to-pastel-purple/60 border border-pastel-pink/60 text-xs text-stone-800 dark:text-stone-200 transition-all flex items-center justify-between shadow-2xs cursor-pointer group"
+              >
+                <div className="flex items-center gap-2 min-w-0 flex-1 text-left">
+                  <span className="text-sm">⚡</span>
+                  <div className="min-w-0">
+                    <span className="text-[10px] uppercase font-bold text-pink-700 dark:text-pink-300 block">
+                      Active Timetable Block
+                    </span>
+                    <span className="font-semibold text-xs truncate block text-stone-900 dark:text-stone-100">
+                      {currentScheduledTask.title} ({currentScheduledTask.startTime})
+                    </span>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded-lg bg-white/70 dark:bg-stone-800 text-[10px] font-bold text-stone-700 dark:text-stone-300 shrink-0">
+                  Sync {currentScheduledTask.durationMinutes || 25}m
+                </span>
+              </button>
+            </div>
+          );
+        })()}
 
         {/* Active Task Linker */}
         <div className="w-full max-w-sm mb-6">

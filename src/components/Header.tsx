@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Palette, Moon, Sun, CheckCircle2, Clock, Cloud, Bell } from 'lucide-react';
+import { Plus, Palette, Moon, Sun, CheckCircle2, Clock, Cloud, Bell, Sparkles } from 'lucide-react';
 import { ThemePreset } from '../types';
 
 interface HeaderProps {
@@ -8,6 +8,7 @@ interface HeaderProps {
   onOpenThemes: () => void;
   onOpenSync: () => void;
   onToggleDarkMode: () => void;
+  onOpenAiAssistant?: () => void;
   freeHoursToday: number;
   completedTasksToday: number;
   totalTasksToday: number;
@@ -21,6 +22,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenThemes,
   onOpenSync,
   onToggleDarkMode,
+  onOpenAiAssistant,
   freeHoursToday,
   completedTasksToday,
   totalTasksToday,
@@ -112,6 +114,19 @@ export const Header: React.FC<HeaderProps> = ({
             <Moon className="w-3.5 h-3.5 text-[var(--color-muted,#7B6F8A)]" />
           )}
         </button>
+
+        {/* Conversational AI Schedule Assistant */}
+        {onOpenAiAssistant && (
+          <button
+            onClick={onOpenAiAssistant}
+            title="AI Schedule Assistant: Type routine in natural language and generate timetable"
+            className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-xl bg-purple-100/80 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-300 hover:bg-purple-200/80 transition-all cursor-pointer whitespace-nowrap active:scale-95 shadow-2xs"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+            <span className="hidden sm:inline">AI Planner</span>
+            <span className="sm:hidden">AI</span>
+          </button>
+        )}
 
         {/* Primary CTA: New Task */}
         <button

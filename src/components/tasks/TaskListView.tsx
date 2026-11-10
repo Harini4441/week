@@ -44,6 +44,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'overdue'>('pending');
+  const [itemTypeFilter, setItemTypeFilter] = useState<'all' | 'scheduled' | 'todo'>('all');
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'all'>('all');
   const [sortBy, setSortBy] = useState<'dueDate' | 'priority' | 'duration' | 'title'>('dueDate');
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
@@ -58,6 +59,11 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
         if (selectedCategory && t.category !== selectedCategory) {
           return false;
         }
+
+        // Type filter: Scheduled Tasks vs To-Dos
+        const isStandaloneTodo = Boolean(t.isTodo || !t.startTime);
+        if (itemTypeFilter === 'scheduled' && isStandaloneTodo) return false;
+        if (itemTypeFilter === 'todo' && !isStandaloneTodo) return false;
 
         // Status filter
         if (statusFilter === 'pending' && t.completed) return false;
@@ -151,11 +157,45 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
 
         {/* Filter Controls (Segmented clean buttons) */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Type Filter: Scheduled vs To-Do */}
+          <div className="flex items-center gap-1 p-1 rounded-2xl bg-[var(--color-bg,#FFF9F2)] border border-[var(--color-border,#F1E4DF)] text-xs">
+            <button
+              onClick={() => setItemTypeFilter('all')}
+              className={`px-2.5 py-1 rounded-xl transition-all cursor-pointer ${
+                itemTypeFilter === 'all'
+                  ? 'bg-[var(--color-card,#FFFFFF)] text-[var(--color-text,#3D3548)] font-semibold shadow-xs'
+                  : 'text-[var(--color-muted,#7B6F8A)] hover:text-[var(--color-text,#3D3548)]'
+              }`}
+            >
+              All Types
+            </button>
+            <button
+              onClick={() => setItemTypeFilter('scheduled')}
+              className={`px-2.5 py-1 rounded-xl transition-all cursor-pointer ${
+                itemTypeFilter === 'scheduled'
+                  ? 'bg-[var(--color-card,#FFFFFF)] text-[var(--color-text,#3D3548)] font-semibold shadow-xs'
+                  : 'text-[var(--color-muted,#7B6F8A)] hover:text-[var(--color-text,#3D3548)]'
+              }`}
+            >
+              ⏰ Scheduled
+            </button>
+            <button
+              onClick={() => setItemTypeFilter('todo')}
+              className={`px-2.5 py-1 rounded-xl transition-all cursor-pointer ${
+                itemTypeFilter === 'todo'
+                  ? 'bg-[var(--color-card,#FFFFFF)] text-[var(--color-text,#3D3548)] font-semibold shadow-xs'
+                  : 'text-[var(--color-muted,#7B6F8A)] hover:text-[var(--color-text,#3D3548)]'
+              }`}
+            >
+              📝 To-Dos
+            </button>
+          </div>
+
           {/* Status Tabs */}
           <div className="flex items-center gap-1 p-1 rounded-2xl bg-[var(--color-bg,#FFF9F2)] border border-[var(--color-border,#F1E4DF)] text-xs">
             <button
               onClick={() => setStatusFilter('pending')}
-              className={`px-3 py-1 rounded-xl transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded-xl transition-all cursor-pointer ${
                 statusFilter === 'pending'
                   ? 'bg-[var(--color-card,#FFFFFF)] text-[var(--color-text,#3D3548)] font-semibold shadow-xs'
                   : 'text-[var(--color-muted,#7B6F8A)] hover:text-[var(--color-text,#3D3548)]'
@@ -165,7 +205,7 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             </button>
             <button
               onClick={() => setStatusFilter('completed')}
-              className={`px-3 py-1 rounded-xl transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded-xl transition-all cursor-pointer ${
                 statusFilter === 'completed'
                   ? 'bg-[var(--color-card,#FFFFFF)] text-[var(--color-text,#3D3548)] font-semibold shadow-xs'
                   : 'text-[var(--color-muted,#7B6F8A)] hover:text-[var(--color-text,#3D3548)]'
@@ -175,23 +215,13 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
             </button>
             <button
               onClick={() => setStatusFilter('overdue')}
-              className={`px-3 py-1 rounded-xl transition-all cursor-pointer ${
+              className={`px-2.5 py-1 rounded-xl transition-all cursor-pointer ${
                 statusFilter === 'overdue'
                   ? 'bg-[var(--color-card,#FFFFFF)] text-rose-500 font-semibold shadow-xs'
                   : 'text-[var(--color-muted,#7B6F8A)] hover:text-rose-400'
               }`}
             >
               Overdue
-            </button>
-            <button
-              onClick={() => setStatusFilter('all')}
-              className={`px-3 py-1 rounded-xl transition-all cursor-pointer ${
-                statusFilter === 'all'
-                  ? 'bg-[var(--color-card,#FFFFFF)] text-[var(--color-text,#3D3548)] font-semibold shadow-xs'
-                  : 'text-[var(--color-muted,#7B6F8A)] hover:text-[var(--color-text,#3D3548)]'
-              }`}
-            >
-              All
             </button>
           </div>
 
@@ -311,10 +341,10 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                   </button>
 
                   {/* Title & Metadata (Clean zero-pill unboxed text with separators) */}
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="flex items-start sm:items-center gap-2 flex-wrap">
                       <span
-                        className={`text-xs sm:text-sm font-semibold truncate ${
+                        className={`text-xs sm:text-sm font-semibold break-words whitespace-normal leading-snug ${
                           task.completed
                             ? 'line-through text-[var(--color-muted,#7B6F8A)]'
                             : 'text-[var(--color-text,#3D3548)]'
@@ -323,15 +353,26 @@ export const TaskListView: React.FC<TaskListViewProps> = ({
                         {task.title}
                       </span>
 
+                      {/* Type Badge: Scheduled Timetable vs Standalone To-Do */}
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300">
+                        {task.isTodo || !task.startTime ? '📝 To-Do' : '⏰ Timetable'}
+                      </span>
+
                       {/* Priority Tag */}
                       <span
-                        className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
                           priorityStyles[task.priority].bg
                         } ${priorityStyles[task.priority].text}`}
                       >
                         {task.priority}
                       </span>
                     </div>
+
+                    {task.description && (
+                      <p className="text-[11px] text-[var(--color-muted,#7B6F8A)] break-words whitespace-normal line-clamp-2 leading-relaxed">
+                        {task.description}
+                      </p>
+                    )}
 
                     {/* Unboxed Metadata row with typographic separators */}
                     <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--color-muted,#7B6F8A)]">
